@@ -1,0 +1,82 @@
+name: Internship Bot
+
+# Trigger configuration
+on:
+  # Run 2 times a day (9 AM and 9 PM UTC) - allows 24-hour window between runs
+  schedule:
+    - cron: '0 9 * * *'   # 09:00 UTC
+    - cron: '0 21 * * *'  # 21:00 UTC (9 PM UTC)
+  
+  # Allow manual trigger via GitHub Actions UI
+  workflow_dispatch:
+
+jobs:
+  internship-finder:
+    # Run on Ubuntu latest (includes Python 3.11 by default)
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Step 1: Check out the repository code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      # Step 2: Set up Python 3.11
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      # Step 3: Install system dependencies for Selenium + Firefox
+      - name: Install Firefox and dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y firefox-geckodriver
+          echo "Firefox and GeckoDriver installed successfully"
+      
+      # Step 4: Create data directory
+      - name: Create data directory
+        run: |
+          mkdir -p data
+          echo "Data directory created"
+      
+      # Step 5: Install Python dependencies from requirements.txt
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          echo "Dependencies installed successfully"
+      
+      # Step 6: Run the main internship finder script
+      - name: Run internship finder
+        env:
+          # Email credentials for Gmail access and notifications
+          EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          
+          # LinkedIn credentials for Selenium scraping
+          LINKEDIN_EMAIL: ${{ secrets.LINKEDIN_EMAIL }}
+          LINKEDIN_PASSWORD: ${{ secrets.LINKEDIN_PASSWORD }}
+          
+          # Gemini API key for optional AI enhancement
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python main.py
+          echo "Internship finder script completed"
+      
+      # Step 7: Upload artifacts (Excel file with internships)
+      - name: Upload internship data
+        if: always()  # Run even if previous step fails
+        uses: actions/upload-artifact@v3
+        with:
+          name: internship-data
+          path: data/internships.xlsx
+          retention-days: 30
+      
+      # Step 8: Upload logs for debugging
+      - name: Upload logs
+        if: always()  # Run even if previous step fails
+        uses: actions/upload-artifact@v3
+        with:
+          name: execution-logs
+          path: internship_finder.log
+          retention-days: 7
